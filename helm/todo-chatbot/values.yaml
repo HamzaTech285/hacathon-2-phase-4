@@ -1,0 +1,62 @@
+namespace: todo-chatbot
+
+frontend:
+  image:
+    repository: todo-frontend
+    tag: "local"
+    pullPolicy: IfNotPresent
+  service:
+    port: 80
+  ingress:
+    enabled: true
+    host: todo-chatbot.local
+
+backend:
+  image:
+    repository: todo-backend
+    tag: "local"
+    pullPolicy: IfNotPresent
+  service:
+    port: 8000
+  env:
+    databaseUrl: "postgresql://todo:todo@todo-postgres:5432/todo"
+    secretKey: "change-me"
+    algorithm: "HS256"
+    accessTokenExpireMinutes: "30"
+
+postgres:
+  image:
+    repository: postgres
+    tag: "16-alpine"
+    pullPolicy: IfNotPresent
+  service:
+    port: 5432
+  auth:
+    username: "todo"
+    password: "todo"
+    database: "todo"
+  storage:
+    size: 1Gi
+
+resources:
+  backend:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  frontend:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+  postgres:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi

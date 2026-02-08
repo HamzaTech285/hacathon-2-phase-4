@@ -1,0 +1,8 @@
+Todo Chatbot deployed.
+
+Frontend:
+  Ingress: http://{{ .Values.frontend.ingress.host }}
+
+Backend (cluster-internal):
+  Service: {{ include "todo-chatbot.fullname" . }}-backend
+  Port: {{ .Values.backend.service.port }}
