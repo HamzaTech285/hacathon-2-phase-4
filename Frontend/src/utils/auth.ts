@@ -1,24 +1,45 @@
 // Utility functions for authentication
+// Compatible with Better Auth JWT system
 
-import { authService } from '@/services/api';
+import {
+  isAuthenticated as checkAuth,
+  removeAuthTokens,
+  getAccessToken,
+  getCurrentUser,
+  getUserId,
+} from '@/lib/auth-client';
 
 /**
- * Check if user is authenticated by checking for token in localStorage
+ * Check if user is authenticated by validating JWT token
  */
 export const isAuthenticated = (): boolean => {
-  return authService.isAuthenticated();
+  return checkAuth();
 };
 
 /**
  * Remove authentication token from localStorage
  */
 export const removeToken = (): void => {
-  authService.logout();
+  removeAuthTokens();
 };
 
 /**
  * Get the authentication token
  */
 export const getToken = (): string | null => {
-  return authService.getToken();
+  return getAccessToken();
+};
+
+/**
+ * Get current user information from JWT token
+ */
+export const getCurrentUserFromToken = () => {
+  return getCurrentUser();
+};
+
+/**
+ * Get user ID from JWT token
+ */
+export const getUserIdFromToken = (): number | null => {
+  return getUserId();
 };

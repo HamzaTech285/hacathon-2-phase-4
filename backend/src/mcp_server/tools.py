@@ -1,4 +1,4 @@
-"""MCP tool implementations for task operations."""
+"""MCP tool implementations using Official MCP SDK."""
 
 from __future__ import annotations
 
@@ -6,97 +6,16 @@ from typing import Any, Dict, List, Optional
 from fastapi import HTTPException
 from sqlmodel import Session
 
+# Re-export from official MCP server implementation
+from .server import TOOL_DEFINITIONS
+
+# Import tool execution functions
 from ..models.task import TaskCreate, TaskUpdate
 from ..services.task_service import TaskService
 
 
-TOOL_DEFINITIONS: List[Dict[str, Any]] = [
-    {
-        "type": "function",
-        "function": {
-            "name": "add_task",
-            "description": "Create a new task for the user.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "user_id": {"type": "integer", "description": "User ID"},
-                    "title": {"type": "string", "description": "Task title"},
-                    "description": {"type": "string", "description": "Task description"},
-                },
-                "required": ["user_id", "title"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "list_tasks",
-            "description": "List tasks for the user, optionally filtered by status.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "user_id": {"type": "integer", "description": "User ID"},
-                    "status": {
-                        "type": "string",
-                        "description": "Filter by status: all, pending, completed",
-                        "enum": ["all", "pending", "completed"],
-                    },
-                },
-                "required": ["user_id"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "complete_task",
-            "description": "Mark a task as completed.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "user_id": {"type": "integer", "description": "User ID"},
-                    "task_id": {"type": "integer", "description": "Task ID"},
-                },
-                "required": ["user_id", "task_id"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "delete_task",
-            "description": "Delete a task.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "user_id": {"type": "integer", "description": "User ID"},
-                    "task_id": {"type": "integer", "description": "Task ID"},
-                },
-                "required": ["user_id", "task_id"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "update_task",
-            "description": "Update a task title or description.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "user_id": {"type": "integer", "description": "User ID"},
-                    "task_id": {"type": "integer", "description": "Task ID"},
-                    "title": {"type": "string", "description": "New task title"},
-                    "description": {"type": "string", "description": "New task description"},
-                },
-                "required": ["user_id", "task_id"],
-            },
-        },
-    },
-]
-
-
 def _status_to_completed(status: Optional[str]) -> Optional[bool]:
+    """Convert status string to boolean for filtering."""
     if status is None or status == "all":
         return None
     if status == "completed":
@@ -107,11 +26,27 @@ def _status_to_completed(status: Optional[str]) -> Optional[bool]:
 
 
 def _normalize_user_id(args: Dict[str, Any], user_id: int) -> int:
+    """Normalize user ID from arguments or context."""
     return int(args.get("user_id", user_id))
 
 
 async def run_tool(tool_name: str, args: Dict[str, Any], session: Session, user_id: int) -> Dict[str, Any] | List[Dict[str, Any]]:
-    """Dispatch MCP tool calls to task operations."""
+    """
+    Dispatch MCP tool calls to task operations.
+    
+    This function is compatible with both:
+    - Official MCP SDK tool execution
+    - OpenAI function calling format
+    
+    Args:
+        tool_name: Name of the tool to execute
+        args: Tool arguments
+        session: Database session
+        user_id: Authenticated user ID
+        
+    Returns:
+        Tool execution result
+    """
     normalized_user_id = _normalize_user_id(args, user_id)
 
     if tool_name == "add_task":

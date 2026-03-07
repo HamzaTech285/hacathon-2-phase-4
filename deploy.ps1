@@ -1,9 +1,11 @@
 # Todo Chatbot Minikube Deployment Script (PowerShell)
+# Includes kubectl-ai and kagent AIOps integration
 
 $ErrorActionPreference = "Stop"
 
 Write-Host "============================================" -ForegroundColor Cyan
 Write-Host "Todo Chatbot - Minikube Deployment" -ForegroundColor Cyan
+Write-Host "With kubectl-ai and kagent AIOps" -ForegroundColor Cyan
 Write-Host "============================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -16,7 +18,25 @@ foreach ($cmd in $commands) {
         exit 1
     }
 }
-Write-Host "✓ Prerequisites OK" -ForegroundColor Green
+Write-Host "✓ Core prerequisites OK" -ForegroundColor Green
+
+# Check optional AIOps tools
+$kubectlAiAvailable = $false
+$kagentAvailable = $false
+
+if (Get-Command "kubectl-ai" -ErrorAction SilentlyContinue) {
+    $kubectlAiAvailable = $true
+    Write-Host "✓ kubectl-ai found" -ForegroundColor Green
+} else {
+    Write-Host "⚠ kubectl-ai not found (optional)" -ForegroundColor DarkYellow
+}
+
+if (Get-Command "kagent" -ErrorAction SilentlyContinue) {
+    $kagentAvailable = $true
+    Write-Host "✓ kagent found" -ForegroundColor Green
+} else {
+    Write-Host "⚠ kagent not found (optional)" -ForegroundColor DarkYellow
+}
 Write-Host ""
 
 # Phase 1: Minikube cluster
@@ -60,20 +80,62 @@ Write-Host ""
 Write-Host "Phase 4: Validating deployment..." -ForegroundColor Yellow
 Write-Host "Waiting for pods to be ready..."
 kubectl wait --for=condition=Ready pods --all -n todo-chatbot --timeout=300s
+Write-Host "✓ All pods ready" -ForegroundColor Green
+Write-Host ""
 
-if (Get-Command kubectl-ai -ErrorAction SilentlyContinue) {
-    Write-Host "Running kubectl-ai checks..." -ForegroundColor Yellow
-    kubectl-ai "list pods in namespace todo-chatbot" | Out-Host
+# Phase 5: kubectl-ai Integration
+Write-Host "Phase 5: kubectl-ai AIOps Integration..." -ForegroundColor Yellow
+if ($kubectlAiAvailable) {
+    Write-Host "Running kubectl-ai deployment analysis..." -ForegroundColor Cyan
+    
+    # Apply kubectl-ai configuration
+    if (Test-Path "kubectl-ai.yaml") {
+        kubectl apply -f kubectl-ai.yaml 2>&1 | Out-Null
+        Write-Host "✓ kubectl-ai configuration applied" -ForegroundColor Green
+    }
+    
+    # Run AI-powered checks
+    Write-Host "`nRunning AI-powered deployment checks:" -ForegroundColor Cyan
+    kubectl-ai "analyze deployment health in namespace todo-chatbot" 2>&1 | Out-Host
+    
+    Write-Host "`n✓ kubectl-ai integration complete" -ForegroundColor Green
 } else {
-    Write-Host "kubectl-ai not found (optional)." -ForegroundColor DarkYellow
+    Write-Host "⚠ kubectl-ai not installed. To install:" -ForegroundColor DarkYellow
+    Write-Host "  kubectl krew install ai" -ForegroundColor White
+    Write-Host "  Or visit: https://github.com/sozercan/kubectl-ai" -ForegroundColor White
 }
+Write-Host ""
 
-if (Get-Command kagent -ErrorAction SilentlyContinue) {
-    Write-Host "Running kagent status..." -ForegroundColor Yellow
-    kagent status -n todo-chatbot | Out-Host
+# Phase 6: kagent Integration
+Write-Host "Phase 6: kagent AIOps Integration..." -ForegroundColor Yellow
+if ($kagentAvailable) {
+    Write-Host "Deploying kagent controller..." -ForegroundColor Cyan
+    
+    # Apply kagent configuration
+    if (Test-Path "kagent-config.yaml") {
+        kubectl apply -f kagent-config.yaml 2>&1 | Out-Null
+        Write-Host "✓ kagent configuration applied" -ForegroundColor Green
+    }
+    
+    # Deploy kagent controller to cluster
+    kubectl apply -f helm/todo-chatbot/templates/kagent-deployment.yaml 2>&1 | Out-Null
+    Write-Host "✓ kagent controller deployed" -ForegroundColor Green
+    
+    # Wait for kagent to be ready
+    Write-Host "Waiting for kagent controller..." -ForegroundColor Cyan
+    kubectl wait --for=condition=Ready pod -l app=kagent-controller -n kagent-system --timeout=120s 2>&1 | Out-Null
+    
+    Write-Host "`nRunning kagent status..." -ForegroundColor Cyan
+    kagent status -n todo-chatbot 2>&1 | Out-Host
+    
+    Write-Host "`n✓ kagent integration complete" -ForegroundColor Green
 } else {
-    Write-Host "kagent not found (optional)." -ForegroundColor DarkYellow
+    Write-Host "⚠ kagent not installed. To install:" -ForegroundColor DarkYellow
+    Write-Host "  helm repo add kagent https://kagent.github.io/charts" -ForegroundColor White
+    Write-Host "  helm install kagent kagent/kagent -n kagent-system --create-namespace" -ForegroundColor White
+    Write-Host "  Or visit: https://github.com/kagent-dev/kagent" -ForegroundColor White
 }
+Write-Host ""
 
 Write-Host ""
 Write-Host "============================================" -ForegroundColor Cyan

@@ -1,0 +1,189 @@
+# KAgent Configuration for Todo Chatbot
+# KAgent provides AI-powered Kubernetes agent capabilities
+
+apiVersion: kagent.dev/v1alpha1
+kind: Agent
+metadata:
+  name: todo-chatbot-agent
+  namespace: todo-chatbot
+  labels:
+    app: todo-chatbot
+    phase: "4"
+
+spec:
+  # Agent Configuration
+  model:
+    provider: openai
+    model: gpt-4o-mini
+    apiKeySecret: openai-api-key
+
+  # Agent Capabilities
+  capabilities:
+    - name: deployment-management
+      enabled: true
+      permissions:
+        - apiGroups: ["apps"]
+          resources: ["deployments", "replicasets", "statefulsets"]
+          verbs: ["get", "list", "watch", "patch"]
+
+    - name: pod-management
+      enabled: true
+      permissions:
+        - apiGroups: [""]
+          resources: ["pods", "pods/log", "pods/exec"]
+          verbs: ["get", "list", "watch", "delete"]
+
+    - name: service-management
+      enabled: true
+      permissions:
+        - apiGroups: [""]
+          resources: ["services", "endpoints", "ingresses"]
+          verbs: ["get", "list", "watch"]
+
+    - name: config-management
+      enabled: true
+      permissions:
+        - apiGroups: [""]
+          resources: ["configmaps", "secrets"]
+          verbs: ["get", "list", "watch"]
+
+    - name: monitoring
+      enabled: true
+      permissions:
+        - apiGroups: ["metrics.k8s.io"]
+          resources: ["pods", "nodes"]
+          verbs: ["get", "list"]
+
+  # Agent Tools
+  tools:
+    - name: kubectl-ai
+      description: Execute AI-powered kubectl commands
+      enabled: true
+
+    - name: log-analyzer
+      description: Analyze and summarize pod logs
+      enabled: true
+
+    - name: health-checker
+      description: Check health of deployments and pods
+      enabled: true
+
+    - name: resource-optimizer
+      description: Suggest resource optimizations
+      enabled: true
+
+    - name: security-scanner
+      description: Scan for security issues
+      enabled: true
+
+  # Agent Actions
+  actions:
+    - name: auto-heal
+      description: Automatically restart crashlooping pods
+      enabled: false  # Set to true for production
+      conditions:
+        - pod.restartCount > 3
+        - pod.phase == "Running"
+      action:
+        type: restart
+        target: pod
+
+    - name: scale-on-demand
+      description: Scale deployments based on load
+      enabled: false
+      conditions:
+        - deployment.cpuUsage > 80%
+      action:
+        type: scale
+        target: deployment
+        replicas: "+1"
+
+  # Conversation Memory
+  memory:
+    enabled: true
+    maxMessages: 50
+    persistence:
+      type: configmap
+      name: kagent-memory
+
+  # Logging
+  logging:
+    level: info
+    format: json
+    output:
+      - stdout
+      - file:/var/log/kagent/agent.log
+
+---
+# KAgent UI Configuration
+apiVersion: kagent.dev/v1alpha1
+kind: AgentUI
+metadata:
+  name: todo-chatbot-agent-ui
+  namespace: todo-chatbot
+
+spec:
+  enabled: true
+  ingress:
+    enabled: true
+    host: kagent.todo-chatbot.local
+  auth:
+    enabled: false  # Enable in production with proper auth
+
+---
+# KAgent Knowledge Base
+apiVersion: kagent.dev/v1alpha1
+kind: KnowledgeBase
+metadata:
+  name: todo-chatbot-kb
+  namespace: todo-chatbot
+
+spec:
+  documents:
+    - name: deployment-guide
+      type: markdown
+      content: |
+        # Todo Chatbot Deployment Guide
+        
+        ## Architecture
+        - Frontend: React/Vite app on port 80
+        - Backend: FastAPI app on port 8000
+        - Database: PostgreSQL on port 5432
+        
+        ## Services
+        - todo-frontend: Frontend service
+        - todo-backend: Backend API service
+        - todo-postgres: Database service
+        
+        ## Ingress
+        - Host: todo-chatbot.local
+        - Paths:
+          - / -> frontend
+          - /api -> backend
+          
+        ## Environment Variables
+        - DATABASE_URL: PostgreSQL connection string
+        - SECRET_KEY: JWT signing key
+        - OPENAI_API_KEY: OpenAI API key for chatbot
+
+    - name: troubleshooting-guide
+      type: markdown
+      content: |
+        # Troubleshooting Guide
+        
+        ## Common Issues
+        
+        ### Pods not starting
+        1. Check events: kubectl describe pod <pod-name>
+        2. Check logs: kubectl logs <pod-name>
+        3. Check resources: kubectl top pod
+        
+        ### Database connection issues
+        1. Verify postgres service is running
+        2. Check DATABASE_URL environment variable
+        3. Test connectivity from backend pod
+        
+        ### API errors
+        1. Check backend logs
+        2. Verify environment variables
+        3. Check database migrations

@@ -1,36 +1,31 @@
-"""Chat service for AI-powered task management."""
+"""Chat service for AI-powered task management using OpenAI Agents SDK and OpenRouter API."""
 
 import json
 import os
 from typing import Optional
 
-from openai import OpenAI
 from sqlmodel import Session, select
 
 from ..models.conversation import Conversation, Message
 from ..models.task import Task
 from ..mcp_server.tools import TOOL_DEFINITIONS, run_tool
+from ..agents.taskflow_agent import TaskFlowAgent, AgentConfig
 
 
 class ChatService:
-    """Service for handling chat interactions with OpenAI."""
+    """Service for handling chat interactions using OpenAI Agents SDK with OpenRouter API."""
 
     def __init__(self):
-        self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        self.system_prompt = """You are a helpful task management assistant for TaskFlow.
-You help users manage their todo tasks through natural language conversation.
-
-You can help with:
-- Creating new tasks
-- Listing tasks
-- Marking tasks as complete
-- Updating task details
-- Deleting tasks
-
-Be friendly, concise, and helpful. When users ask about tasks, provide clear information.
-If they want to create a task, ask for necessary details like title and description.
-Always confirm actions taken by tools and summarize results for the user.
-"""
+        # Initialize TaskFlow Agent with OpenRouter configuration
+        self.agent = TaskFlowAgent(
+            config=AgentConfig(
+                model="openai/gpt-4o-mini",
+                temperature=0.2,
+                max_tokens=500,
+            )
+        )
+        # Set MCP tools for the agent
+        self.agent.set_tools(TOOL_DEFINITIONS)
     
     @staticmethod
     def get_or_create_conversation(session: Session, user_id: int, conversation_id: Optional[int] = None) -> Conversation:
@@ -79,7 +74,7 @@ Always confirm actions taken by tools and summarize results for the user.
         return message
     
     async def generate_response(self, session: Session, user_id: int, user_message: str, conversation_id: Optional[int] = None) -> dict:
-        """Generate AI response for user message."""
+        """Generate AI response for user message using OpenAI Agents SDK."""
 
         # Get or create conversation
         conversation = self.get_or_create_conversation(session, user_id, conversation_id)
@@ -90,82 +85,33 @@ Always confirm actions taken by tools and summarize results for the user.
         # Get conversation history
         history = self.get_conversation_history(session, conversation.id)
 
-        # Build messages for OpenAI
-        messages = [
-            {"role": "system", "content": self.system_prompt},
-            *history,
-            {"role": "user", "content": user_message},
-        ]
-
         # Get task context for better responses
         task_context = self._get_task_context(session, user_id)
-        if task_context:
-            messages[0]["content"] += f"\n\nUser's current tasks:\n{task_context}"
 
-        # Call OpenAI API with MCP tool definitions
+        # Run the agent with conversation history and task context
         try:
-            response = self.client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=messages,
-                temperature=0.2,
-                max_tokens=500,
-                tools=TOOL_DEFINITIONS,
-                tool_choice="auto",
+            agent_response = await self.agent.run(
+                messages=[
+                    {"role": "system", "content": self.agent.config.system_prompt},
+                    *history,
+                    {"role": "user", "content": user_message},
+                ],
+                tool_handler=lambda tool_name, args: run_tool(tool_name, args, session, user_id),
             )
 
-            assistant_message = response.choices[0].message
-            tool_calls = assistant_message.tool_calls or []
-
-            # Execute tool calls (MCP tools)
-            tool_results = []
-            if tool_calls:
-                for tool_call in tool_calls:
-                    tool_name = tool_call.function.name
-                    args = json.loads(tool_call.function.arguments or "{}")
-                    result = await run_tool(tool_name, args, session, user_id)
-                    tool_results.append({
-                        "tool": tool_name,
-                        "arguments": args,
-                        "result": result,
-                    })
-
-                # Add tool results to messages for final response
-                messages.append({
-                    "role": "assistant",
-                    "tool_calls": tool_calls,
-                    "content": assistant_message.content or "",
-                })
-
-                for tool_call, result in zip(tool_calls, tool_results):
-                    messages.append({
-                        "role": "tool",
-                        "tool_call_id": tool_call.id,
-                        "content": json.dumps(result["result"]),
-                    })
-
-                follow_up = self.client.chat.completions.create(
-                    model="gpt-4o-mini",
-                    messages=messages,
-                    temperature=0.2,
-                    max_tokens=500,
-                )
-                final_message = follow_up.choices[0].message.content
-            else:
-                final_message = assistant_message.content or ""
-
-            # Save assistant message
+            # Save assistant message with tool calls
             self.save_message(
                 session,
                 conversation.id,
                 "assistant",
-                final_message,
-                tool_calls=tool_results or None,
+                agent_response.content,
+                tool_calls=agent_response.tool_calls or None,
             )
 
             return {
                 "conversation_id": conversation.id,
-                "response": final_message,
-                "tool_calls": tool_results,
+                "response": agent_response.content,
+                "tool_calls": agent_response.tool_calls,
             }
 
         except Exception as e:

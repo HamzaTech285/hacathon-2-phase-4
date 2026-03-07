@@ -1,0 +1,96 @@
+# Spec-Kit Configuration for Hackathon II - Todo App
+name: hackathon-todo
+version: "1.0.0"
+description: Full-Stack Todo App with AI Chatbot - Spec-Driven Development
+
+structure:
+  specs_dir: specs
+  features_dir: specs/features
+  api_dir: specs/api
+  database_dir: specs/database
+  ui_dir: specs/ui
+  history_dir: history/prompts
+
+phases:
+  - name: phase1-console
+    description: In-Memory Python Console App
+    status: pending
+    features:
+      - task-crud-console
+    tech_stack:
+      - Python 3.11+
+      - Claude Code
+      - Spec-Kit Plus
+
+  - name: phase2-web
+    description: Full-Stack Web Application
+    status: complete
+    features:
+      - task-crud
+      - authentication
+      - user-isolation
+    tech_stack:
+      - Frontend: React + Vite + TypeScript
+      - Backend: Python FastAPI
+      - ORM: SQLModel
+      - Database: Neon PostgreSQL
+      - Auth: Better Auth with JWT
+
+  - name: phase3-chatbot
+    description: AI-Powered Todo Chatbot
+    status: complete
+    features:
+      - chatbot
+      - mcp-server
+      - ai-agents
+      - conversation-persistence
+    tech_stack:
+      - Frontend: Custom Chat UI
+      - AI Framework: OpenAI Agents SDK
+      - MCP Server: Official MCP SDK
+      - Backend: Python FastAPI
+
+  - name: phase4-kubernetes
+    description: Local Kubernetes Deployment
+    status: complete
+    features:
+      - docker-containers
+      - helm-charts
+      - minikube-deployment
+      - aiops-integration
+    tech_stack:
+      - Docker
+      - Minikube
+      - Helm
+      - kubectl-ai
+      - kagent
+
+  - name: phase5-cloud
+    description: Advanced Cloud Deployment
+    status: pending
+    features:
+      - kafka-event-streaming
+      - dapr-service-mesh
+      - digital-ocean-doks
+    tech_stack:
+      - Kafka
+      - Dapr
+      - DigitalOcean Kubernetes
+
+spec_conventions:
+  feature_spec_template: specs/features/template.md
+  api_spec_template: specs/api/template.md
+  database_spec_template: specs/database/template.md
+  ui_spec_template: specs/ui/template.md
+
+development_workflow:
+  1_specify: Create or update spec in /specs
+  2_plan: Generate implementation plan via Claude Code
+  3_implement: Claude Code generates code from spec
+  4_test: Run tests and validate against spec
+  5_document: Update PHR in history/prompts/
+
+claude_context:
+  root_claude_md: CLAUDE.md
+  backend_claude_md: backend/CLAUDE.md
+  frontend_claude_md: Frontend/CLAUDE.md

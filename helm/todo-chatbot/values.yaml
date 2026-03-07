@@ -19,7 +19,7 @@ backend:
   service:
     port: 8000
   env:
-    databaseUrl: "postgresql://todo:todo@todo-postgres:5432/todo"
+    databaseUrl: "postgresql://todo:todo@todo-chatbot-postgres:5432/todo"
     secretKey: "change-me"
     algorithm: "HS256"
     accessTokenExpireMinutes: "30"

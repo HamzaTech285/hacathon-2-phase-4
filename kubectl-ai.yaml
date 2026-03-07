@@ -1,0 +1,101 @@
+# kubectl-ai Configuration for Todo Chatbot
+# This file defines AI-powered Kubernetes operations for Phase 4
+
+apiVersion: kubectl-ai/v1alpha1
+kind: AIConfig
+metadata:
+  name: todo-chatbot-aiops
+  namespace: todo-chatbot
+
+spec:
+  # AI Assistant Configuration
+  assistant:
+    enabled: true
+    model: gpt-4
+    context: |
+      You are an AI assistant for managing the Todo Chatbot Kubernetes deployment.
+      Help users with deployment, monitoring, troubleshooting, and optimization.
+
+  # Pre-defined AI Commands
+  commands:
+    - name: deploy-check
+      description: Check deployment status and health
+      prompt: |
+        Analyze the deployment status of the todo-chatbot namespace.
+        Check all pods, services, deployments, and ingress resources.
+        Report any issues and provide recommendations.
+      output: markdown
+
+    - name: troubleshoot-pods
+      description: Troubleshoot failing pods
+      prompt: |
+        Find all pods in the todo-chatbot namespace that are not in Running state.
+        Analyze their events, logs, and resource usage.
+        Provide root cause analysis and fix recommendations.
+      output: markdown
+
+    - name: security-audit
+      description: Audit security configuration
+      prompt: |
+        Review all resources in the todo-chatbot namespace for security best practices.
+        Check for:
+        - Missing resource limits
+        - Missing security contexts
+        - Exposed secrets
+        - Network policies
+        - RBAC configuration
+        Provide a security report with recommendations.
+      output: markdown
+
+    - name: optimize-resources
+      description: Optimize resource allocation
+      prompt: |
+        Analyze resource requests and limits for all deployments.
+        Compare with actual usage (if metrics available).
+        Recommend optimal resource allocation for cost and performance.
+      output: markdown
+
+    - name: log-analysis
+      description: Analyze application logs
+      prompt: |
+        Collect and analyze logs from all pods in the todo-chatbot namespace.
+        Identify errors, warnings, and patterns.
+        Summarize findings and highlight critical issues.
+      output: markdown
+
+    - name: cost-estimate
+      description: Estimate deployment cost
+      prompt: |
+        Based on resource requests and current cloud pricing,
+        estimate the monthly cost of running this deployment.
+        Provide cost optimization recommendations.
+      output: markdown
+
+  # Monitoring Queries
+  monitoring:
+    queries:
+      - name: pod-health
+        query: "Get all pods and their restart counts in todo-chatbot namespace"
+      - name: service-endpoints
+        query: "List all services and their endpoint counts"
+      - name: resource-usage
+        query: "Show CPU and memory usage for all pods"
+      - name: pending-pods
+        query: "Find any pods in Pending or Failed state"
+
+  # Alerting Rules
+  alerts:
+    - name: pod-crashloop
+      condition: "pod.restartCount > 3"
+      severity: warning
+      message: "Pod {{pod.name}} is crashlooping"
+
+    - name: high-memory
+      condition: "pod.memoryUsage > 80%"
+      severity: warning
+      message: "Pod {{pod.name}} memory usage is high"
+
+    - name: pending-too-long
+      condition: "pod.pendingDuration > 5m"
+      severity: error
+      message: "Pod {{pod.name}} has been pending for too long"

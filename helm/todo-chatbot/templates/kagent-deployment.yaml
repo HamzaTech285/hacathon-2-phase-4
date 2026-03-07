@@ -1,0 +1,177 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kagent-system
+  labels:
+    app.kubernetes.io/name: kagent-system
+    app.kubernetes.io/component: agent
+
+---
+# KAgent Controller Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kagent-controller
+  namespace: kagent-system
+  labels:
+    app: kagent-controller
+
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kagent-controller
+  template:
+    metadata:
+      labels:
+        app: kagent-controller
+    spec:
+      serviceAccountName: kagent-service-account
+      containers:
+        - name: controller
+          image: ghcr.io/kagent/kagent-controller:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+            - containerPort: 8081
+              name: metrics
+          env:
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: kagent-secrets
+                  key: openai-api-key
+            - name: LOG_LEVEL
+              value: "info"
+            - name: WATCH_NAMESPACE
+              value: "todo-chatbot"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+---
+# KAgent Service Account
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kagent-service-account
+  namespace: kagent-system
+
+---
+# KAgent RBAC ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kagent-cluster-role
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "pods/exec", "services", "endpoints", "configmaps", "secrets", "events"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "scale"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses", "networkpolicies"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["kagent.dev"]
+    resources: ["agents", "agents/status", "knowledgebases", "agentuis"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["pods", "nodes"]
+    verbs: ["get", "list"]
+
+---
+# KAgent RBAC ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kagent-cluster-role-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kagent-cluster-role
+subjects:
+  - kind: ServiceAccount
+    name: kagent-service-account
+    namespace: kagent-system
+
+---
+# KAgent Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: kagent-controller
+  namespace: kagent-system
+  labels:
+    app: kagent-controller
+
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 8080
+      name: http
+    - port: 8081
+      targetPort: 8081
+      name: metrics
+  selector:
+    app: kagent-controller
+
+---
+# KAgent Secrets
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kagent-secrets
+  namespace: kagent-system
+type: Opaque
+stringData:
+  openai-api-key: "${OPENAI_API_KEY:-change-me-in-production}"
+
+---
+# KAgent ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kagent-config
+  namespace: kagent-system
+data:
+  config.yaml: |
+    agent:
+      name: todo-chatbot-agent
+      namespace: todo-chatbot
+      model: gpt-4o-mini
+      temperature: 0.2
+      maxTokens: 1000
+    
+    monitoring:
+      enabled: true
+      interval: 30s
+      metricsPort: 8081
+    
+    logging:
+      level: info
+      format: json
+    
+    features:
+      autoHeal: false
+      scaleOnDemand: false
+      securityScanning: true
+      resourceOptimization: true
